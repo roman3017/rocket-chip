@@ -30,8 +30,6 @@ case object ConfigString extends Field[Array[Byte]]
 case object NExtInterrupts extends Field[Int]
 /** Interrupt controller configuration */
 case object PLICKey extends Field[PLICConfig]
-/** Number of clock cycles per RTC tick */
-case object RTCPeriod extends Field[Int]
 /** The file to read the BootROM contents from */
 case object BootROMFile extends Field[String]
 /** Export an external MMIO slave port */
@@ -70,9 +68,10 @@ class Uncore(implicit val p: Parameters) extends Module
     val tiles_uncached = Vec(nUncachedTilePorts, new ClientUncachedTileLinkIO).flip
     val ext_uncached = Vec(nExtClients, new ClientUncachedTileLinkIO()(innerParams)).flip
     val prci = Vec(nTiles, new PRCITileIO).asOutput
-    val mmio = if (exportMMIO) Some(new ClientUncachedTileLinkIO()(outermostMMIOParams)) else None
+    val mmio = exportMMIO.option(new ClientUncachedTileLinkIO()(outermostMMIOParams))
     val interrupts = Vec(p(NExtInterrupts), Bool()).asInput
     val debug = new DebugBusIO()(p).flip
+    val rtcTick = Bool(INPUT)
   }
 
   val outmemsys = if (nCachedTilePorts + nUncachedTilePorts > 0)
@@ -124,7 +123,7 @@ class Uncore(implicit val p: Parameters) extends Module
     val prci = Module(new PRCI)
     prci.io.tl <> mmioNetwork.port("int:prci")
     io.prci := prci.io.tiles
-    prci.io.rtcTick := Counter(p(RTCPeriod)).inc() // placeholder for real RTC
+    prci.io.rtcTick := io.rtcTick
 
     for (i <- 0 until nTiles) {
       prci.io.interrupts(i).meip := plic.io.harts(plic.cfg.context(i, 'M'))
@@ -234,11 +233,12 @@ abstract class Coreplex(implicit val p: Parameters) extends Module
   class CoreplexIO(implicit val p: Parameters) extends Bundle {
     val mem  = Vec(nMemChannels, new ClientUncachedTileLinkIO()(outermostParams))
     val ext_clients = Vec(nExtClients, new ClientUncachedTileLinkIO()(innerParams)).flip
-    val mmio = if(p(ExportMMIOPort)) Some(new ClientUncachedTileLinkIO()(outermostMMIOParams)) else None
+    val mmio = p(ExportMMIOPort).option(new ClientUncachedTileLinkIO()(outermostMMIOParams))
     val interrupts = Vec(p(NExtInterrupts), Bool()).asInput
     val debug = new DebugBusIO()(p).flip
+    val rtcTick = new Bool(INPUT)
     val extra = p(ExtraCoreplexPorts)(p)
-    val success: Option[Bool] = if (hasSuccessFlag) Some(Bool(OUTPUT)) else None
+    val success: Option[Bool] = hasSuccessFlag.option(Bool(OUTPUT))
   }
 
   def hasSuccessFlag: Boolean = false
@@ -268,6 +268,8 @@ class DefaultCoreplex(topParams: Parameters) extends Coreplex()(topParams) {
       rst := prci.reset
       tile.io.prci <> prci
   }
+
+  uncore.io.rtcTick := io.rtcTick
 
   // Connect the uncore to the tile memory ports, HostIO and MemIO
   uncore.io.tiles_cached <> tileList.map(_.io.cached).flatten

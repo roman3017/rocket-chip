@@ -130,7 +130,7 @@ class BasePlatformConfig extends Config (
       case NExtMMIOAXIChannels => 0
       case NExtMMIOAHBChannels => 0
       case NExtMMIOTLChannels  => 0
-      case ExportMMIOPort => site(ExtraDevices).addrMapEntries.size > 0
+      case ExportMMIOPort => site(ExtIOAddrMapEntries).size > 0
       case AsyncBusChannels => false
       case NExtBusAXIChannels => 0
       case NExternalClients => (if (site(NExtBusAXIChannels) > 0) 1 else 0) +
@@ -153,6 +153,8 @@ class BasePlatformConfig extends Config (
       case ExtMemSize => Dump("MEM_SIZE", 0x10000000L)
       case ConfigString => makeConfigString()
       case GlobalAddrMap => globalAddrMap
+      case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
+      case RTCTick => (p: Parameters, t_io: Bundle, p_io:Bundle) => Counter(p(RTCPeriod)).inc() 
       case _ => throw new CDEMatchError
   }})
 

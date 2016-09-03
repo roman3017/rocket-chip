@@ -93,9 +93,10 @@ class BaseCoreplexConfig extends Config (
           else ((if (site(UseVM)) rv32i else rv32pi), rv32u)
         TestGeneration.addSuites(rvi.map(_("p")))
         TestGeneration.addSuites((if(site(UseVM)) List("v") else List()).flatMap(env => rvu.map(_(env))))
-        TestGeneration.addSuite(if (site(UseVM)) benchmarks else emptyBmarks)
-        List.fill(site(NTiles)){ (r: Bool, p: Parameters) =>
+        TestGeneration.addSuite(benchmarks)
+        List.tabulate(site(NTiles)){ i => (r: Bool, p: Parameters) =>
           Module(new RocketTile(resetSignal = r)(p.alterPartial({
+            case TileId => i
             case TLId => "L1toL2"
             case NUncachedTileLinkPorts => 1 + site(RoccNMemChannels)
           })))
@@ -112,11 +113,13 @@ class BaseCoreplexConfig extends Config (
       case UseUser => true
       case UseDebug => true
       case NBreakpoints => 1
+      case NPerfCounters => 0
+      case NPerfEvents => 0
       case FastLoadWord => true
       case FastLoadByte => false
       case XLen => 64
       case FPUKey => Some(FPUConfig())
-      case MulDivKey => Some(MulDivConfig())
+      case MulDivKey => Some(MulDivConfig(mulUnroll = 8, mulEarlyOut = true, divEarlyOut = true))
       case UseAtomics => true
       case UseCompressed => true
       case PLICKey => PLICConfig(site(NTiles), site(UseVM), site(NExtInterrupts), 0)
@@ -126,7 +129,6 @@ class BaseCoreplexConfig extends Config (
       case MtvecInit => BigInt(0x1010)
       case MtvecWritable => true
       //Uncore Paramters
-      case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
       case LNEndpoints => site(TLKey(site(TLId))).nManagers + site(TLKey(site(TLId))).nClients
       case LNHeaderBits => log2Ceil(site(TLKey(site(TLId))).nManagers) +
                              log2Up(site(TLKey(site(TLId))).nClients)
@@ -343,6 +345,7 @@ class WithBlockingL1 extends Config (
 
 class WithSmallCores extends Config (
     topDefinitions = { (pname,site,here) => pname match {
+      case MulDivKey => Some(MulDivConfig())
       case FPUKey => None
       case NTLBEntries => 4
       case BtbKey => BtbParameters(nEntries = 0)
