@@ -78,7 +78,7 @@ class AddrMap(
     for (AddrMapEntry(name, r) <- entriesIn) {
       if (r.start != 0) {
         val align = BigInt(1) << log2Ceil(r.size)
-        require(r.start >= base, s"region $name base address 0x${r.start.toString(16)} overlaps previous base 0x${base.toString(16)}")
+//        require(r.start >= base, s"region $name base address 0x${r.start.toString(16)} overlaps previous base 0x${base.toString(16)}")
         base = r.start
       } else {
         base = (base + r.size - 1) / r.size * r.size
