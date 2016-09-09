@@ -166,6 +166,7 @@ class BasePlatformConfig extends Config (
       case GlobalAddrMap => globalAddrMap
       case RTCPeriod => 100 // gives 10 MHz RTC assuming 1 GHz uncore clock
       case RTCTick => (p: Parameters, t_io: Bundle, p_io:Bundle) => Counter(p(RTCPeriod)).inc() 
+      case SimMemLatency => 0
       case _ => throw new CDEMatchError
   }})
 
